@@ -1,0 +1,3 @@
+[submodule "timemory"]
+	path = source/timemory
+	url = https://github.com/NERSC/timemory.git

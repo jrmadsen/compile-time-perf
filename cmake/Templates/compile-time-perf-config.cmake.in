@@ -1,0 +1,154 @@
+# Don't allow cmake older than 3.13 to use this configuration
+cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+
+include(${CMAKE_CURRENT_LIST_DIR}/compile-time-perf-config-version.cmake)
+
+@PACKAGE_INIT@
+
+# find timem
+FIND_PROGRAM(compile-time-perf_TIMEM_EXECUTABLE
+    NAMES           timem
+    HINTS           ${PACKAGE_PREFIX_DIR}
+    PATHS           ${PACKAGE_PREFIX_DIR}
+    PATH_SUFFIXES   bin)
+
+# find timem
+FIND_PROGRAM(compile-time-perf_ANALYZER_EXECUTABLE
+    NAMES           compile-time-perf-analyzer
+    HINTS           ${PACKAGE_PREFIX_DIR}
+    PATHS           ${PACKAGE_PREFIX_DIR}
+    PATH_SUFFIXES   bin)
+
+# function to add to support
+FUNCTION(enable_compile_time_perf NAME)
+    cmake_parse_arguments(COMP
+        "GLOBAL;PROJECT;LINK;NEVER_CLEAN"
+        "TIMEM_OUTPUT_DIRECTORY"
+        "DIRECTORY;TARGET;TIMEM_OPTIONS;ANALYZER_OPTIONS"
+        ${ARGN})
+
+    foreach(_OPTS GLOBAL PROJECT LINK NEVER_CLEAN TIMEM_OUTPUT_DIRECTORY DIRECTORY TARGET TIMEM_OPTIONS ANALYZER_OPTIONS)
+        if("${NAME}" STREQUAL "${_OPTS}")
+            message(FATAL_ERROR "\nENABLE_COMPILE_TIME_PERF(NAME <OPTIONS>) received ${NAME} as the NAME, which is an option identifier. Please provide a name as the first argument.\n")
+        endif()
+    endforeach()
+
+    # global option to disable
+    if(DEFINED USE_COMPILE_TIME_PERF AND NOT USE_COMPILE_TIME_PERF)
+        return()
+    endif()
+
+    # name-based option to disable
+    string(REPLACE "-" "_" _OPT_NAME "${NAME}")
+    string(TOUPPER "${_OPT_NAME}" _OPT_NAME)
+    if(DEFINED USE_${_OPT_NAME}_COMPILE_TIME_PERF AND NOT USE_${_OPT_NAME}_COMPILE_TIME_PERF)
+        return()
+    endif()
+
+    # if not set to GLOBAL or PROJECT and not directories or targets were supplied, enable project-based usage
+    if(NOT COMP_GLOBAL AND NOT COMP_PROJECT AND NOT COMP_DIRECTORY AND NOT COMP_TARGET)
+        set(COMP_PROJECT)
+    endif()
+
+    # cmake target to execute the analysis
+    set(COMP_ANALYZER_TARGET    analyze-${NAME})
+    # cmake target to remove all analysis files
+    set(COMP_ANALYZER_CLEAN     clean-${NAME})
+
+    if(NOT DEFINED COMP_TIMEM_OUTPUT_DIRECTORY)
+        if(COMP_GLOBAL)
+            set(COMP_TIMEM_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/.compile-time-perf-timem-output")
+        elseif(COMP_PROJECT)
+            set(COMP_TIMEM_OUTPUT_DIRECTORY "${PROJECT_BINARY_DIR}/.compile-time-perf-timem-output")
+        endif()
+    endif()
+
+    # just a shorter version for messages
+    string(REPLACE "${CMAKE_BINARY_DIR}/" "" MESG_TIMEM_OUTPUT_DIRECTORY "${COMP_TIMEM_OUTPUT_DIRECTORY}")
+
+    if(NOT compile-time-perf_TIMEM_EXECUTABLE)
+        message(FATAL_ERROR "compile-time-perf could not find 'timem'. Please set '-Dcompile-time-perf_TIMEM_EXECUTABLE=/path/to/timem'")
+    endif()
+
+    # the command that prefixes all compile/link commands
+    set(_CTP_COMMAND "${compile-time-perf_TIMEM_EXECUTABLE} -o ${COMP_TIMEM_OUTPUT_DIRECTORY}/${NAME}-%m --disable-papi -q ${COMP_TIMEM_OPTIONS} --")
+
+    # this isn't ideal but this will at least provide some cleanup of files during make clean
+    if(NOT COMP_NEVER_CLEAN)
+        file(GLOB _STALE_FILES "${COMP_TIMEM_OUTPUT_DIRECTORY}/*.json")
+    endif()
+
+    # build this target to remove the entire folder of outputs
+    add_custom_target(${COMP_ANALYZER_CLEAN}
+        ${CMAKE_COMMAND} -E rm -rf ${COMP_TIMEM_OUTPUT_DIRECTORY}
+        COMMENT "Cleaning compile times from ${MESG_TIMEM_OUTPUT_DIRECTORY}..."
+        BYPRODUCTS ${_STALE_FILES}
+        VERBATIM)
+
+    # if user generates a special clean target
+    foreach(_CLEAN_TARGET very-clean dist-clean veryclean distclean)
+        if(TARGET ${_CLEAN_TARGET} AND NOT COMP_NEVER_CLEAN)
+            add_dependencies(${_CLEAN_TARGET} ${COMP_ANALYZER_CLEAN})
+        endif()
+    endforeach()
+
+    if(COMP_GLOBAL)
+
+        # if global, don't bother setting others
+        set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}")
+        if(COMP_LINK)
+            set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${_CTP_COMMAND}")
+        endif()
+
+    else()
+        foreach(_TYPE PROJECT DIRECTORY TARGET)
+
+            # make project/subproject scoping easy, e.g. enable_compile_time_perf(PROJECT) after project(...)
+            if("${_TYPE}" STREQUAL "PROJECT" AND COMP_${_TYPE})
+                list(APPEND COMP_DIRECTORY ${PROJECT_SOURCE_DIR})
+                unset(COMP_${_TYPE})
+            endif()
+
+            # set the properties if defined
+            if(COMP_${_TYPE})
+                set_property(${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}")
+                if(COMP_LINK)
+                    set_property(${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_LINK "${_CTP_COMMAND}")
+                endif()
+            endif()
+
+        endforeach()
+    endif()
+
+    if(TARGET ${COMP_ANALYZER_TARGET})
+        message(FATAL_ERROR "@PROJECT_NAME@ cannot create analyzer target \"${COMP_ANALYZER_TARGET}\" because it already exists")
+    else()
+        if(NOT compile-time-perf_ANALYZER_EXECUTABLE)
+            message(FATAL_ERROR "compile-time-perf could not find 'compile-time-perf-analyzer'. Please set '-Dcompile-time-perf_ANALYZER_EXECUTABLE=/path/to/compile-time-perf-analyzer'")
+        endif()
+        add_custom_target(${COMP_ANALYZER_TARGET}
+            @Python3_EXECUTABLE@ ${compile-time-perf_ANALYZER_EXECUTABLE} ${COMP_ANALYZER_OPTIONS} -- ${COMP_TIMEM_OUTPUT_DIRECTORY}
+            COMMENT "Analyzing compile times from ${MESG_TIMEM_OUTPUT_DIRECTORY}..."
+            VERBATIM)
+    endif()
+
+ENDFUNCTION()
+
+#----------------------------------------------------------------------------------------#
+#   find_package variables
+#----------------------------------------------------------------------------------------#
+
+include(FindPackageHandleStandardArgs)
+
+find_package_handle_standard_args(compile-time-perf
+    FOUND_VAR           compile-time-perf_FOUND
+    VERSION_VAR         compile-time-perf_VERSION
+    REQUIRED_VARS       compile-time-perf_TIMEM_EXECUTABLE
+                        compile-time-perf_ANALYZER_EXECUTABLE
+    HANDLE_COMPONENTS)
+
+foreach(_VARIANT COMPILE_TIME_PERF compile_time_perf)
+    foreach(_VARIABLE FOUND VERSION)
+        set(${_VARIANT}_${_VARIABLE} ${compile-time-perf_${_VARIABLE}})
+    endforeach()
+endforeach()
