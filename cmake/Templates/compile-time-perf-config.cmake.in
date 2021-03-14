@@ -5,6 +5,9 @@ include(${CMAKE_CURRENT_LIST_DIR}/compile-time-perf-config-version.cmake)
 
 @PACKAGE_INIT@
 
+set_and_check(@PROJECT_NAME@_BIN_DIR "@PACKAGE_BIN_INSTALL_DIR@")
+check_required_components(@PROJECT_NAME@)
+
 # find timem
 FIND_PROGRAM(compile-time-perf_TIMEM_EXECUTABLE
     NAMES           timem

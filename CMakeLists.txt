@@ -20,6 +20,10 @@ cmake_policy(SET CMP0053 NEW)
 cmake_policy(SET CMP0063 NEW)
 cmake_policy(SET CMP0077 NEW)
 cmake_policy(SET CMP0079 NEW)
+if(NOT CMAKE_VERSION VERSION_LESS 3.15)
+    cmake_policy(SET CMP0090 NEW)
+endif()
+
 
 if("${CMAKE_BUILD_TYPE}" STREQUAL "")
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -123,5 +127,3 @@ install(
         ${PROJECT_BINARY_DIR}/compile-time-perf-config-version.cmake
     DESTINATION
         ${CMAKE_INSTALL_CONFIGDIR})
-
-export(PACKAGE compile-time-perf)

@@ -1,30 +1,55 @@
 # compile-time-perf
 
-This project is designed to be a high-level "profiler" for compiling large projects. It is designed to be included as part of CI.
-It is not intended to replace compiler flags like `-ftime-report` or the (phenomenal) `-ftime-trace` provided by newer Clang versions.
-The main problem with `-ftime-trace` is that it provides no high-level data w.r.t. which _files_ took the longest to compile, so in
-large projects, __*it can be difficult to locate which files are actually taking the longest to compile and which are requiring the most memory to compile.*__
-Tools such as [ClangBuildAnalyzer](https://github.com/aras-p/ClangBuildAnalyzer) help locate the files with the longest compilation times by
-aggregating multiple trace files but it doesn't provide any information that `-ftime-trace` itself does not provide.
+I work with a lot of larger projects and do a lot of template meta-programming so while I absolutely love the flamegraphs from
+the `-ftime-trace` compiler flag, I've had a hard time detecting when changes affect the total compilation time and which
+files saw the most dramatic increase/decrease in compile time.
 
-Thus, I created
-`compile-time-perf` which essentially uses the UNIX `time` command alongside `rsuage` and some lightweight sampling to read some `/proc/<pid>`
-files while the compile command executes and then sticks that data along with the command executed into a JSON file.
+Thus, I created `compile-time-perf` (CTP), which is designed to be a high-level "profiler" for compiling large projects.
+__*It is designed to be simple to install, compiler and language agnostic, and included as part of CI.*__
+It is not intended to replace compiler flags like `-ftime-trace` but supplement them.
+The main problem with `-ftime-trace` is that it provides no high-level data w.r.t. _which_ files to focus on, so in large projects,
+it can be difficult to locate which file should be focused on first. Another problem is that it only provides timing data --
+if the system has limited memory resources but has 4+ cores, your compile times can shoot up drastically if each core is compiling
+something requiring 2+ GB of memory because you'll start using swap.
+
+Down the road, I could see the "analyzer" script actually including support for detecting `-ftime-trace` in the compile command
+logs, searching the folder structure for the JSON, and then using/providing something like
+[ClangBuildAnalyzer](https://github.com/aras-p/ClangBuildAnalyzer) to provide more in-depth details.
+But I think the useful enough by itself right now.
+
+CTP essentially uses a UNIX `time`-like command-line tool to launch the compile commands, called
+[timem](https://github.com/NERSC/timemory/blob/develop/source/tools/timemory-timem/README.md)
+([docs](https://timemory.readthedocs.io/en/develop/tools/timemory-timem/README.html)),
+which I built using the [timemory toolkit](https://github.com/NERSC/timemory) --
+a modular C++ template library for build profiling tools which, recursively, is one of the two primary places
+where I need this functionality (other is [Kokkos](https://github.com/kokkos/kokkos)).
+
+Timem does do anything particularly fancy: it just forks and does a mix of deterministic phase measurements and
+(on Linux) some statistical sampling of a few `/proc/<pid>` files while the command executes. Then that data along
+with the command executed are put into a JSON file whose name is generated from an md5sum of command executed
+(for uniqueness and reproducibility). Then the Python "analyzer" script just globs the files and directories it is
+passed and combines that data, does some sorting and filtering to make the commands more easily readable and thats it.
 
 ## Building CTP
 
-Standard cmake build system without any project-specific options. CTP uses the
-[timem](https://github.com/NERSC/timemory/blob/develop/source/tools/timemory-timem/README.md)
-([docs](https://timemory.readthedocs.io/en/develop/tools/timemory-timem/README.html))
-executable from [timemory toolkit](https://github.com/NERSC/timemory) to do the measurements on the compile commands.
-Timemory is included as a git submodule and cmake will automatically run `git submodule update --init` if you don't.
+Standard cmake build system without any project-specific options.
+CTP uses the [timem](https://github.com/NERSC/timemory/blob/develop/source/tools/timemory-timem/README.md)
+executable from the [timemory toolkit](https://github.com/NERSC/timemory) to do the measurements on the compile commands.
+[Timemory](https://timemory.readthedocs.io/en/develop/) is included as a git submodule and
+cmake will automatically run `git submodule update --init` if you don't.
 
 ```console
-git clone https://github.com/jrmadsen/compile-time-perf.git compile-time-perf-source
-cmake -B compile-time-perf-build compile-time-perf-source
+# clone
+git clone https://github.com/jrmadsen/compile-time-perf.git
+# configure (it's not hanging, timemory can take a while here)
+cmake -B compile-time-perf-build -D CMAKE_INSTALL_PREFIX=/usr/local compile-time-perf
+# build
 cmake --build compile-time-perf-build --target all
+# install
 cmake --build compile-time-perf-build --target install
 ```
+
+When configuring your project, just set append the CMAKE_INSTALL_PREFIX value to the CMAKE_PREFIX_PATH environment variable.
 
 Minimum requirements:
 
