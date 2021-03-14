@@ -50,7 +50,7 @@ FUNCTION(enable_compile_time_perf NAME)
 
     # if not set to GLOBAL or PROJECT and not directories or targets were supplied, enable project-based usage
     if(NOT COMP_GLOBAL AND NOT COMP_PROJECT AND NOT COMP_DIRECTORY AND NOT COMP_TARGET)
-        set(COMP_PROJECT)
+        set(COMP_PROJECT ON)
     endif()
 
     # cmake target to execute the analysis
@@ -105,7 +105,6 @@ FUNCTION(enable_compile_time_perf NAME)
 
     else()
         foreach(_TYPE PROJECT DIRECTORY TARGET)
-
             # make project/subproject scoping easy, e.g. enable_compile_time_perf(PROJECT) after project(...)
             if("${_TYPE}" STREQUAL "PROJECT" AND COMP_${_TYPE})
                 list(APPEND COMP_DIRECTORY ${PROJECT_SOURCE_DIR})
