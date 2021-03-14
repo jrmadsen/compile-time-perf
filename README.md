@@ -24,7 +24,7 @@ which I built using the [timemory toolkit](https://github.com/NERSC/timemory) --
 a modular C++ template library for build profiling tools which, recursively, is one of the two primary places
 where I need this functionality (other is [Kokkos](https://github.com/kokkos/kokkos)).
 
-Timem does do anything particularly fancy: it just forks and does a mix of deterministic phase measurements and
+Timem doesn't do anything particularly fancy: it just forks and does a mix of deterministic phase measurements and
 (on Linux) some statistical sampling of a few `/proc/<pid>` files while the command executes. Then that data along
 with the command executed are put into a JSON file whose name is generated from an md5sum of command executed
 (for uniqueness and reproducibility). Then the Python "analyzer" script just globs the files and directories it is
