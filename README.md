@@ -57,8 +57,16 @@ Minimum requirements:
 - C++ compiler supporting C++14
 - Python interpreter
 
-> __*CTP is not supported on Windows currently*__. It can be made available fairly easily
-> if someone wants to contribute the equivalent of `fork()` + `execve()` on Windows to the `timem` executable.
+> __*CTP is not supported on Windows currently*__. It can be made available easily if someone with more access to a Windows
+> machine than me wants to write the [_spawn](https://docs.microsoft.com/en-us/cpp/c-runtime-library/spawn-wspawn-functions?view=msvc-160)
+> implementation for the `timem` executable. It won't be hard to get a working prototype:
+> - the timem source code is only about 1,200 lines of code
+> - timemory already has Windows support for the timers, peak RSS, and page RSS on Windows -- the most relevant values
+> - it is 100% trivial to locally disable any non-working measurement type for windows builds
+>   - it's literally 1 LOC: `TIMEMORY_DEFINE_CONCRETE_TRAIT(is_available, <component>, false_type)` and it will disappear from every template instantiation
+> 
+> So if you would like to use this on Windows and have an afternoon to spare, feel free to 
+> [file an issue in timemory](https://github.com/NERSC/timemory/issues) and I can help you get started.
 
 ## Quick Start
 
