@@ -192,8 +192,8 @@ def main(data, args):
                 for citr in itr.command:
                     val = citr
                     for sitr in args.strip:
-                        val = val.removeprefix(sitr)
-                        val = val.removesuffix(sitr)
+                        val = val[len(sitr):] if val.startswith(sitr) else val
+                        val = val[:len(val)-len(sitr)] if val.endswith(sitr) else val
                     for ritr in strip_regex:
                         val = ritr.sub("", val, count=1)
                     cmd.append(val)
