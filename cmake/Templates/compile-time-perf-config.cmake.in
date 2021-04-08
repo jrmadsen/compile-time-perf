@@ -25,7 +25,7 @@ FIND_PROGRAM(compile-time-perf_ANALYZER_EXECUTABLE
 # function to add to support
 FUNCTION(enable_compile_time_perf NAME)
     cmake_parse_arguments(COMP
-        "GLOBAL;PROJECT;LINK;NEVER_CLEAN"
+        "GLOBAL;PROJECT;LINK_ONLY;LINK;NEVER_CLEAN"
         "TIMEM_OUTPUT_DIRECTORY"
         "DIRECTORY;TARGET;TIMEM_OPTIONS;ANALYZER_OPTIONS"
         ${ARGN})
@@ -98,7 +98,9 @@ FUNCTION(enable_compile_time_perf NAME)
     if(COMP_GLOBAL)
 
         # if global, don't bother setting others
-        set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}")
+        if(NOT COMP_LINK_ONLY)
+            set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}")
+        endif()
         if(COMP_LINK)
             set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${_CTP_COMMAND}")
         endif()
@@ -113,7 +115,9 @@ FUNCTION(enable_compile_time_perf NAME)
 
             # set the properties if defined
             if(COMP_${_TYPE})
-                set_property(${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}")
+                if(NOT COMP_LINK_ONLY)
+                    set_property(${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}")
+                endif()
                 if(COMP_LINK)
                     set_property(${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_LINK "${_CTP_COMMAND}")
                 endif()
@@ -129,7 +133,7 @@ FUNCTION(enable_compile_time_perf NAME)
             message(FATAL_ERROR "compile-time-perf could not find 'compile-time-perf-analyzer'. Please set '-Dcompile-time-perf_ANALYZER_EXECUTABLE=/path/to/compile-time-perf-analyzer'")
         endif()
         add_custom_target(${COMP_ANALYZER_TARGET}
-            @Python3_EXECUTABLE@ ${compile-time-perf_ANALYZER_EXECUTABLE} ${COMP_ANALYZER_OPTIONS} -- ${COMP_TIMEM_OUTPUT_DIRECTORY}
+            @Python3_EXECUTABLE@ ${compile-time-perf_ANALYZER_EXECUTABLE} ${COMP_ANALYZER_OPTIONS} -- ${COMP_TIMEM_OUTPUT_DIRECTORY}/${NAME}
             COMMENT "Analyzing compile times from ${MESG_TIMEM_OUTPUT_DIRECTORY}..."
             VERBATIM)
     endif()

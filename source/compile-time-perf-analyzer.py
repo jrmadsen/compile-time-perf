@@ -60,12 +60,45 @@ def log_message(msg):
 
 class Measurement(object):
     def __init__(self, _name, _compiler, _cmd, _data):
+        def strip_common_prefix(_files):
+            _tmp = []
+            _orig = []
+            for itr in _files:
+                if os.path.isfile(itr):
+                    log_message(f"file: {itr}")
+                    itr = os.path.abspath(itr)
+                    _tmp.append(itr)
+                else:
+                    _orig.append(itr)
+
+            commonp = os.path.commonprefix(_tmp)
+            log_message(f"common prefix: {commonp}")
+            if commonp == "/" or len(commonp) == 0:
+                for itr in _tmp:
+                    itr = "/.../{}".format(
+                        os.path.join(
+                            os.path.basename(os.path.dirname(itr)),
+                            os.path.basename(itr),
+                        )
+                    )
+            else:
+                if len(_tmp) > 0 and len(commonp) < len(
+                    os.path.dirname(_tmp[0])
+                ):
+                    _tmp = [x[len(commonp) :] for x in _tmp]
+            return sorted(_orig + _tmp)
+
         self.name = _name
         self.compiler = _compiler
-        self.command = _cmd
+        self.command = strip_common_prefix(_cmd)
         self.value = _data["value"]
         self.units = _data["unit_repr"]
         self.samples = _data["laps"]
+        self.files_in_command = []
+        for itr in _cmd:
+            if os.path.isfile(itr):
+                self.files_in_command.append(itr)
+        self.files_in_command = strip_common_prefix(self.files_in_command)
 
     def __lt__(self, rhs):
         return self.value < rhs.value
@@ -198,6 +231,8 @@ def main(data, args):
                         val = ritr.sub("", val, count=1)
                     cmd.append(val)
                 cmd = sorted(cmd)
+                if len(cmd) == 0:
+                    cmd = itr.files_in_command
                 if isinstance(itr.value, float):
                     print(
                         "{}    {:12.3f} {:4} {} {:40s}".format(
@@ -397,6 +432,10 @@ if __name__ == "__main__":
             files.append(itr)
         elif os.path.isdir(itr):
             for fitr in glob.glob(os.path.join(itr, "*.json")):
+                if os.path.isfile(fitr):
+                    files.append(os.path.realpath(fitr))
+        else:
+            for fitr in glob.glob(f"{itr}*.json"):
                 if os.path.isfile(fitr):
                     files.append(os.path.realpath(fitr))
 
