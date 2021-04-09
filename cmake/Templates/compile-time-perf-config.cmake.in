@@ -99,11 +99,11 @@ FUNCTION(enable_compile_time_perf NAME)
 
         # if global, don't bother setting others
         if(NOT COMP_LINK_ONLY)
-            get_property(_EXISTING ${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_COMPILE)
+            get_property(_EXISTING GLOBAL PROPERTY RULE_LAUNCH_COMPILE)
             set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${_CTP_COMMAND}" ${_EXISTING})
         endif()
         if(COMP_LINK)
-            get_property(_EXISTING ${_TYPE} ${COMP_${_TYPE}} PROPERTY RULE_LAUNCH_LINK)
+            get_property(_EXISTING GLOBAL PROPERTY RULE_LAUNCH_LINK)
             set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK "${_CTP_COMMAND}" ${_EXISTING})
         endif()
 
