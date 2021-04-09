@@ -225,8 +225,12 @@ def main(data, args):
                 for citr in itr.command:
                     val = citr
                     for sitr in args.strip:
-                        val = val[len(sitr):] if val.startswith(sitr) else val
-                        val = val[:len(val)-len(sitr)] if val.endswith(sitr) else val
+                        val = val[len(sitr) :] if val.startswith(sitr) else val
+                        val = (
+                            val[: len(val) - len(sitr)]
+                            if val.endswith(sitr)
+                            else val
+                        )
                     for ritr in strip_regex:
                         val = ritr.sub("", val, count=1)
                     cmd.append(val)
@@ -412,7 +416,13 @@ if __name__ == "__main__":
     else:
         _iargs = sys.argv[1:]
 
-    args = parser.parse_intermixed_args(_iargs)
+    try:
+        args = parser.parse_intermixed_args(_iargs)
+    except AttributeError as e:
+        sys.stderr.write(f"{e}\n")
+        args, extra = parser.parse_known_args(_iargs)
+        if len(extra) > 0:
+            _dargs += extra
 
     if args.list_metrics:
         log_message(
