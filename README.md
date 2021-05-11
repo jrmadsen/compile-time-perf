@@ -64,8 +64,8 @@ Minimum requirements:
 > - timemory already has Windows support for the timers, peak RSS, and page RSS on Windows -- the most relevant values
 > - it is 100% trivial to locally disable any non-working measurement type for windows builds
 >   - it's literally 1 LOC: `TIMEMORY_DEFINE_CONCRETE_TRAIT(is_available, <component>, false_type)` and it will disappear from every template instantiation
-> 
-> So if you would like to use this on Windows and have an afternoon to spare, feel free to 
+>
+> So if you would like to use this on Windows and have an afternoon to spare, feel free to
 > [file an issue in timemory](https://github.com/NERSC/timemory/issues) and I can help you get started.
 
 ## Quick Start
@@ -222,4 +222,43 @@ g++ foo.cpp -o foo
 
 # manual command
 timem -o foo-ctp/%m -q -- g++ foo.cpp -o foo
+```
+
+## Example Usage
+
+In timemory, the usage looks like this in the main CMakeLists.txt:
+
+```cmake
+option(TIMEMORY_USE_CTP "Enable compile-time-perf" OFF)
+mark_as_advanced(TIMEMORY_USE_CTP)
+
+if(TIMEMORY_BUILD_DEVELOPER OR TIMEMORY_USE_CTP)
+    find_package(compile-time-perf)
+    if(compile-time-perf_FOUND)
+        enable_compile_time_perf(timemory-compile-time
+            LINK
+            ANALYZER_OPTIONS
+                -s "${PROJECT_BINARY_DIR}/" "${PROJECT_SOURCE_DIR}/"
+                -f "lang-all" "so" "a" "dylib" "dll"
+                -i ".*(_tests)$" "^(ex_).*"
+                -e "^(@rpath).*" "^(/usr)" "^(/opt)")
+        set(TIMEMORY_USE_CTP ON)
+    else()
+        set(TIMEMORY_USE_CTP OFF)
+    endif()
+endif()
+```
+
+Later, in `source/tests/CMakeLists.txt`, a ctest is created which executes during CI alongside all the tests
+(at which point, all the code has been built):
+
+```cmake
+if(TIMEMORY_USE_CTP AND compile-time-perf_ANALYZER_EXECUTABLE)
+    add_test(
+        NAME                compile-time-perf
+        COMMAND             ${CMAKE_COMMAND}
+                            --build ${PROJECT_BINARY_DIR}
+                            --target analyze-timemory-compile-time
+        WORKING_DIRECTORY   ${PROJECT_BINARY_DIR})
+endif()
 ```
